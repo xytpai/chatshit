@@ -301,13 +301,13 @@ class BertLMPredictionHead(nn.Module):
         self.transform = BertPredictionHeadTransform(config)
         self.decoder = nn.Linear(bert_model_embedding_weights.size(1),
                                  bert_model_embedding_weights.size(0),
-                                 bias=False)
+                                 bias=False) # h, vocab_size
         self.decoder.weight = bert_model_embedding_weights
         self.bias = nn.Parameter(torch.zeros(
             bert_model_embedding_weights.size(0)))
 
     def forward(self, hidden_states):
-        hidden_states = self.transform(hidden_states)
+        hidden_states = self.transform(hidden_states) # -> b, s, h
         hidden_states = self.decoder(hidden_states) + self.bias
         return hidden_states
 
@@ -346,9 +346,9 @@ class BertPreTrainingHeads(nn.Module):
             # We are masking out elements that won't contribute to loss because of masked lm labels
             sequence_flattened = torch.index_select(sequence_output.view(-1, sequence_output.shape[-1]),
                                                     0, torch.nonzero(masked_lm_labels.view(-1) != -1).squeeze())
-            prediction_scores = self.predictions(sequence_flattened)
+            prediction_scores = self.predictions(sequence_flattened) # -> b, selected_s, vocab_size
         else:
-            prediction_scores = self.predictions(sequence_output)
+            prediction_scores = self.predictions(sequence_output) # -> b, s, vocab_size
         seq_relationship_score = self.seq_relationship(pooled_output)
         return prediction_scores, seq_relationship_score
 
@@ -451,7 +451,7 @@ if __name__ == '__main__':
     print(config)
 
     bert = BertModel(config)
-    sequence_output_is_dense = False
+    sequence_output_is_dense = True
     bert_pretraining_head = BertPreTrainingHeads(
         config, bert.embeddings.word_embeddings.weight, sequence_output_is_dense)
     pretrain_loss_fn = BertPretrainingCriterion(
