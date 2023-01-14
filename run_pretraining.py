@@ -7,6 +7,7 @@ import torch.nn as nn
 import modeling_bert
 
 from utils import is_main_process, format_step, get_world_size, get_rank
+from schedulers import PolyWarmUpScheduler
 
 
 def setup_training(args):
@@ -66,6 +67,49 @@ def prepare_model_and_optimizer(args, device, sequence_output_is_dense):
     model = modeling_bert.BertForPreTraining(
         config, sequence_output_is_dense=sequence_output_is_dense)
 
+    checkpoint = None
+    if not args.resume_from_checkpoint:
+        global_step = 0
+    else:
+        if args.resume_step == -1 and not args.init_checkpoint:
+            model_names = [f for f in os.listdir(
+                args.output_dir) if f.endswith(".pt")]
+            args.resume_step = max(
+                [int(x.split('.pt')[0].split('_')[1].strip()) for x in model_names])
+        global_step = args.resume_step if not args.init_checkpoint else 0
+        if not args.init_checkpoint:
+            checkpoint = torch.load(os.path.join(
+                args.output_dir, "ckpt_{}.pt".format(global_step)), map_location=device)
+        else:
+            checkpoint = torch.load(args.init_checkpoint, map_location=device)
+
+        model.load_state_dict(checkpoint['model'], strict=False)
+
+        if args.phase2 and not args.init_checkpoint:
+            global_step -= args.phase1_end_step
+        if args.init_checkpoint:
+            args.resume_step = 0
+        if is_main_process():
+            print("resume step from ", args.resume_step)
+
+    model = model.to(device)
+    if args.fp16 and args.allreduce_post_accumulation_fp16:
+        model = model.half()
+    param_optimizer = list(model.named_parameters())
+    no_decay = ['bias', 'gamma', 'beta', 'LayerNorm']
+    optimizer_grouped_parameters = [
+        {'params': [p for n, p in param_optimizer if not any(
+            nd in n for nd in no_decay)], 'weight_decay': 0.01},
+        {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
+
+    optimizer = torch.optim.AdamW(optimizer_grouped_parameters,
+                                  lr=args.learning_rate)
+    lr_scheduler = PolyWarmUpScheduler(optimizer,
+                                       warmup=args.warmup_proportion,
+                                       total_steps=args.max_steps,
+                                       base_lr=args.learning_rate,
+                                       device=device)
+
 
 def main():
     args = argparser.parse_args()
@@ -76,6 +120,8 @@ def main():
     torch.manual_seed(args.seed + args.local_rank)
 
     device, args = setup_training(args)
+    prepare_model_and_optimizer(
+        args, device, sequence_output_is_dense=not args.no_dense_sequence_output)
 
 
 if __name__ == '__main__':
