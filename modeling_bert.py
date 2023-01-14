@@ -301,13 +301,13 @@ class BertLMPredictionHead(nn.Module):
         self.transform = BertPredictionHeadTransform(config)
         self.decoder = nn.Linear(bert_model_embedding_weights.size(1),
                                  bert_model_embedding_weights.size(0),
-                                 bias=False) # h, vocab_size
+                                 bias=False)  # h, vocab_size
         self.decoder.weight = bert_model_embedding_weights
         self.bias = nn.Parameter(torch.zeros(
             bert_model_embedding_weights.size(0)))
 
     def forward(self, hidden_states):
-        hidden_states = self.transform(hidden_states) # -> b, s, h
+        hidden_states = self.transform(hidden_states)  # -> b, s, h
         hidden_states = self.decoder(hidden_states) + self.bias
         return hidden_states
 
@@ -346,9 +346,11 @@ class BertPreTrainingHeads(nn.Module):
             # We are masking out elements that won't contribute to loss because of masked lm labels
             sequence_flattened = torch.index_select(sequence_output.view(-1, sequence_output.shape[-1]),
                                                     0, torch.nonzero(masked_lm_labels.view(-1) != -1).squeeze())
-            prediction_scores = self.predictions(sequence_flattened) # -> b, selected_s, vocab_size
+            prediction_scores = self.predictions(
+                sequence_flattened)  # -> b, selected_s, vocab_size
         else:
-            prediction_scores = self.predictions(sequence_output) # -> b, s, vocab_size
+            prediction_scores = self.predictions(
+                sequence_output)  # -> b, s, vocab_size
         seq_relationship_score = self.seq_relationship(pooled_output)
         return prediction_scores, seq_relationship_score
 
@@ -379,14 +381,17 @@ class BertEmbeddings(nn.Module):
         return embeddings
 
 
-class BertModel(nn.Module):
+class BertModelBase(nn.Module):
     def __init__(self, config):
         super().__init__()
+        if not isinstance(config, BertConfig):
+            raise ValueError(
+                "Parameter config in `{}(config)` should be an instance of class `BertConfig`. "
+                "To create a model from a Google pretrained model use "
+                "`model = {}.from_pretrained(PRETRAINED_MODEL_NAME)`".format(
+                    self.__class__.__name__, self.__class__.__name__
+                ))
         self.config = config
-        self.embeddings = BertEmbeddings(config)
-        self.encoder = BertEncoder(config)
-        self.pooler = BertPooler(config)
-        self.apply(self.init_bert_weights)
 
     def init_bert_weights(self, module):
         if isinstance(module, (nn.Linear, nn.Embedding)):
@@ -397,6 +402,16 @@ class BertModel(nn.Module):
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:
             module.bias.data.zero_()
+
+
+class BertModel(BertModelBase):
+    def __init__(self, config):
+        super().__init__(config)
+        self.config = config
+        self.embeddings = BertEmbeddings(config)
+        self.encoder = BertEncoder(config)
+        self.pooler = BertPooler(config)
+        self.apply(self.init_bert_weights)
 
     def forward(self, input_ids, token_type_ids, attention_mask):
         if attention_mask is None:
@@ -421,6 +436,23 @@ class BertModel(nn.Module):
         sequence_output = encoded_layers[-1]
         pooled_output = self.pooler(sequence_output)
         return encoded_layers, pooled_output
+
+
+class BertForPreTraining(BertModelBase):
+    def __init__(self, config, sequence_output_is_dense=False):
+        super().__init__(config)
+        self.bert = BertModel(config)
+        self.cls = BertPreTrainingHeads(config,
+                                        self.bert.embeddings.word_embeddings.weight, sequence_output_is_dense)
+        self.apply(self.init_bert_weights)
+
+    def forward(self, input_ids, token_type_ids, attention_mask, masked_lm_labels):
+        encoded_layers, pooled_output = self.bert(
+            input_ids, token_type_ids, attention_mask)
+        sequence_output = encoded_layers[-1]
+        prediction_scores, seq_relationship_score = self.cls(
+            sequence_output, pooled_output, masked_lm_labels)
+        return prediction_scores, seq_relationship_score
 
 
 class BertPretrainingCriterion(nn.Module):
@@ -450,39 +482,39 @@ if __name__ == '__main__':
     config = BertConfig.from_json_file('bert_large_config.json')
     print(config)
 
-    bert = BertModel(config)
-    sequence_output_is_dense = True
-    bert_pretraining_head = BertPreTrainingHeads(
-        config, bert.embeddings.word_embeddings.weight, sequence_output_is_dense)
+    sequence_output_is_dense = False
+    bert_for_pretraining_model = BertForPreTraining(
+        config, sequence_output_is_dense)
+
     pretrain_loss_fn = BertPretrainingCriterion(
         config.vocab_size, sequence_output_is_dense)
 
-    fake_input = torch.rand(2, 10) * 100  # batch_size, seq_length
     '''
     fake_input is the input token sequence, a LongTensor of shape: batch_size, seq_length.
     The value of input is ranged from 0 to vocab_size - 1.
     '''
+    fake_input = torch.rand(2, 10) * 100  # batch_size, seq_length
     fake_input = fake_input.long()
-    encoded_layers, pooled_output = bert(fake_input, None, None)
-    sequence_output = encoded_layers[-1]
 
-    print('sequence_output', sequence_output.shape)
-    print('pooled_output', pooled_output.shape)
-
-    masked_lm_labels = torch.randn(2, 10) * 100
-    masked_lm_labels = masked_lm_labels.long()
-    masked_lm_labels[masked_lm_labels < 50] = -1
     '''
     masked_lm_labels is the label for mlm, a LongTensor of shape: batch_size, seq_length
     If the value of masked_lm_labels equals to -1, it is not contributed to the loss.
     '''
-    next_sentence_labels = torch.zeros(2).long()
+    masked_lm_labels = torch.randn(2, 10) * 100
+    masked_lm_labels = masked_lm_labels.long()
+    masked_lm_labels[masked_lm_labels < 50] = -1
+
     '''
     next_sentence_labels is a LongTensor of shape: batch_size.
     If the value of next_sentence_labels equals to -1, it is not contributed to the loss.
     '''
-    prediction_scores, seq_relationship_score = bert_pretraining_head(
-        sequence_output, pooled_output, masked_lm_labels)
+    next_sentence_labels = torch.zeros(2).long()
+
+    prediction_scores, seq_relationship_score = bert_for_pretraining_model(
+        fake_input, None, None, masked_lm_labels)
+    print('prediction_scores', prediction_scores.shape)
+    print('seq_relationship_score', seq_relationship_score.shape)
+
     loss = pretrain_loss_fn(
         prediction_scores, seq_relationship_score, masked_lm_labels, next_sentence_labels)
     print(loss)
