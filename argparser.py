@@ -64,6 +64,8 @@ def parse_args():
 
     parser.add_argument('--phase2', default=False, action='store_true',
                         help="Only required for checkpoint saving format")
+    parser.add_argument('--resume_phase2', default=False, action='store_true',
+                        help="Whether to resume training with seq len 512")
 
     parser.add_argument("--do_train", default=False, action='store_true',
                         help="Whether to run training.")
