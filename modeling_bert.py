@@ -458,6 +458,10 @@ if __name__ == '__main__':
         config.vocab_size, sequence_output_is_dense)
 
     fake_input = torch.rand(2, 10) * 100  # batch_size, seq_length
+    '''
+    fake_input is the input token sequence, a LongTensor of shape: batch_size, seq_length.
+    The value of input is ranged from 0 to vocab_size - 1.
+    '''
     fake_input = fake_input.long()
     encoded_layers, pooled_output = bert(fake_input, None, None)
     sequence_output = encoded_layers[-1]
@@ -468,8 +472,15 @@ if __name__ == '__main__':
     masked_lm_labels = torch.randn(2, 10) * 100
     masked_lm_labels = masked_lm_labels.long()
     masked_lm_labels[masked_lm_labels < 50] = -1
+    '''
+    masked_lm_labels is the label for mlm, a LongTensor of shape: batch_size, seq_length
+    If the value of masked_lm_labels equals to -1, it is not contributed to the loss.
+    '''
     next_sentence_labels = torch.zeros(2).long()
-
+    '''
+    next_sentence_labels is a LongTensor of shape: batch_size.
+    If the value of next_sentence_labels equals to -1, it is not contributed to the loss.
+    '''
     prediction_scores, seq_relationship_score = bert_pretraining_head(
         sequence_output, pooled_output, masked_lm_labels)
     loss = pretrain_loss_fn(
