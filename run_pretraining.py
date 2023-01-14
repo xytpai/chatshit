@@ -110,6 +110,31 @@ def prepare_model_and_optimizer(args, device, sequence_output_is_dense):
                                        base_lr=args.learning_rate,
                                        device=device)
 
+    if args.resume_from_checkpoint:
+        # For phase2 from scratch, need to reset the learning rate and step count in the checkpoint. Else restore values in checkpoint.
+        if (args.phase2 and not args.resume_phase2) or args.init_checkpoint:
+            for group in checkpoint['optimizer']['param_groups']:
+                group['step'].zero_()
+                group['lr'].fill_(args.learning_rate)
+        else:
+            # if 'grad_scaler' in checkpoint and (not args.phase2 or args.resume_phase2):
+            #     grad_scaler.load_state_dict(checkpoint['grad_scaler'])
+            pass
+        optimizer.load_state_dict(checkpoint['optimizer'])  # , strict=False)
+
+    if args.local_rank != -1:
+        pass
+
+    criterion = modeling_bert.BertPretrainingCriterion(
+        config.vocab_size, sequence_output_is_dense=sequence_output_is_dense)
+
+    if (args.resume_from_checkpoint and not args.phase2) or (args.resume_phase2) or args.init_checkpoint:
+        start_epoch = checkpoint.get('epoch', 0)
+    else:
+        start_epoch = 0
+
+    return model, optimizer, None, lr_scheduler, checkpoint, global_step, criterion, start_epoch
+
 
 def main():
     args = argparser.parse_args()
@@ -120,8 +145,9 @@ def main():
     torch.manual_seed(args.seed + args.local_rank)
 
     device, args = setup_training(args)
-    prepare_model_and_optimizer(
-        args, device, sequence_output_is_dense=not args.no_dense_sequence_output)
+    model, optimizer, _, lr_scheduler, checkpoint, global_resume_step, criterion, epoch = \
+        prepare_model_and_optimizer(
+            args, device, sequence_output_is_dense=not args.no_dense_sequence_output)
 
 
 if __name__ == '__main__':
