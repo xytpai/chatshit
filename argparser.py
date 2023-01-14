@@ -79,6 +79,8 @@ def parse_args():
     # For dtype specific training
     parser.add_argument("--bf16", default=False,
                         action='store_true', help="Enale BFloat16 training")
+    parser.add_argument("--fp16", default=False,
+                        action='store_true', help="Enale Half training")
     parser.add_argument("--bf32", default=False,
                         action='store_true', help="Enale BFloat32 training")
 
@@ -113,6 +115,8 @@ def parse_args():
                         help="Skip torch.distributed initialization to Run multiple instance independently")
     parser.add_argument("--dist_profile", action="store_true",
                         help="Whether to enable distributed timing profile")
+    parser.add_argument("--no_dense_sequence_output", default=False, action='store_true',
+                        help="Disable dense sequence output")
 
     parser.add_argument("--device", type=str,
                         default="cuda", help="backend to run")
