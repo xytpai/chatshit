@@ -8,6 +8,7 @@ python data/wiki_downloader.py --language=en --save_path=./wiki/
 #### 2. Pre-processing wiki dataset for pretraining
 
 ```bash
+rm -rf ./wiki/wikicorpus_en/text
 python data/wiki_prep.py \
 --p=./data/wikiextractor/WikiExtractor.py \
 --input=./wiki/wikicorpus_en/wikicorpus_en.xml \
