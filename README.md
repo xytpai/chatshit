@@ -11,5 +11,5 @@ python data/wiki_downloader.py --language=en --save_path=./wiki/
 python data/wiki_prep.py \
 --p=./data/wikiextractor/WikiExtractor.py \
 --input=./wiki/wikicorpus_en/wikicorpus_en.xml \
---n_processes=32
+--n_processes=64
 ```
