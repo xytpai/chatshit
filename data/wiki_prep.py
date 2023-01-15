@@ -52,7 +52,7 @@ def main():
 
     wikiextractor_command = 'python ' + args.p + ' ' \
         + args.input + ' -b 100M --processes ' \
-            + args.n_processes + ' -o ' + wiki_dir + '/json --json'
+            + args.n_processes + ' -o ' + wiki_dir + '/text'
     print('WikiExtractor Command:', wikiextractor_command)
     
     wikiextractor_process = subprocess.run(wikiextractor_command, shell=True, check=True)
