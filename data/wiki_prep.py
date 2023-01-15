@@ -47,13 +47,16 @@ def parse_args():
 
 def main():
     args = parse_args()
-    wikiextractor_command = args.p + ' ' + args.input + ' -b 100M --processes ' + args.n_processes
+    wiki_dir = os.path.dirname(args.input)
+    wiki_type = os.path.basename(args.input).split('.')[0].strip()
+
+    wikiextractor_command = 'python ' + args.p + ' ' \
+        + args.input + ' -b 100M --processes ' \
+            + args.n_processes + ' -o ' + wiki_dir + '/text'
     print('WikiExtractor Command:', wikiextractor_command)
     
     wikiextractor_process = subprocess.run(wikiextractor_command, shell=True, check=True)
     
-    wiki_dir = os.path.dirname(args.input)
-    wiki_type = os.path.basename(args.input).split('.')[0].strip()
     output_file_name = wiki_dir + '/' + wiki_type + '_one_article_per_line.txt'
     wiki_formatter = WikicorpusTextFormatting(wiki_dir, output_file_name, recursive=True)
     wiki_formatter.merge()
