@@ -16,4 +16,4 @@ python ./do_sentence_segmentation.py --data=$inputs --input_suffix='.2' --output
 mkdir -p ./wiki_results
 
 # Gather into fixed size packages
-python ./do_gather.py --data=$inputs --input_suffix='.3' --block_size=26.92 --out_dir='./wiki_results'
+python ./do_gather.py --data=$inputs --input_suffix='.3' --block_size=32 --out_dir='./wiki_results'
