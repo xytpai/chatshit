@@ -15,4 +15,6 @@ python ./data/WikiExtractor.py ${xmlfile} -o ${outputdir}
 #### 3. Cleanup wiki dataset for pretraining
 
 ```bash
+cd data/wikicleaner/
+bash run.sh '/data/wiki/text/*/wiki_??' # Change to your own path
 ```
