@@ -3,14 +3,16 @@
 ```bash
 rm -rf ./wiki/
 python data/wiki_downloader.py --language=en --save_path=./wiki/
+# Or download by chrome then execute: bzip2 -dk ${bz2file}
 ```
 
-#### 2. Pre-processing wiki dataset for pretraining
+#### 2. Extract wiki dataset for pretraining
 
 ```bash
-rm -rf ./wiki/wikicorpus_en/text
-python data/wiki_prep.py \
---p=./data/wikiextractor/WikiExtractor.py \
---input=./wiki/wikicorpus_en/wikicorpus_en.xml \
---n_processes=64
+python ./data/wikiextractor/WikiExtractor.py ${xmlfile} -o ${outputdir}
+```
+
+#### 3. Cleanup wiki dataset for pretraining
+
+```bash
 ```
