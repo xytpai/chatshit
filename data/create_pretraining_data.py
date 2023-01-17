@@ -4,6 +4,8 @@ import tokenization
 import h5py
 import argparse
 import numpy as np
+from multiprocessing import cpu_count
+from multiprocessing.dummy import Pool as ThreadPool
 
 hdf5_compression_method = None
 
@@ -371,17 +373,30 @@ def main():
         vocab_file=args.vocab_file, do_lower_case=args.do_lower_case)
     input_files = [item for item in args.input_files.split(
         ',') if len(item) > 0]
-    print('input_files:', input_files)
-
+    print('Input files:', len(input_files))
+    n_processes = cpu_count()
+    count_for_one_task = (len(input_files) + n_processes - 1) // n_processes
+    input_files = [input_files[i * count_for_one_task: (i + 1) * count_for_one_task] for i in range(n_processes)]
+    
     rng = random.Random(args.seed)
-    instances = create_training_instances(
-        input_files, tokenizer, args.max_seq_length, args.dupe_factor,
-        args.short_seq_prob, args.masked_lm_prob, args.max_predictions_per_seq,
-        rng)
+    def task_create_training_instances(input_files_):
+        if len(input_files_) == 0:
+            return []
+        return create_training_instances(
+            input_files_, tokenizer, args.max_seq_length, args.dupe_factor,
+            args.short_seq_prob, args.masked_lm_prob, args.max_predictions_per_seq,
+            rng)
+
+    pool = ThreadPool(n_processes)
+    instances_ = pool.map(task_create_training_instances, input_files)
+    instances = []
+    for items in instances_:
+        for item in items:
+            instances.append(item)
+    print('Instances generated:', len(instances))
 
     output_files = [
         item for item in args.output_files.split(',') if len(item) > 0]
-    print('output_files:', output_files)
     write_instance_to_example_files(instances, tokenizer, args.max_seq_length,
                                     args.max_predictions_per_seq, output_files)
 
