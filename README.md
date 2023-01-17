@@ -16,5 +16,5 @@ python ./data/WikiExtractor.py ${xmlfile} -o ${outputdir}
 
 ```bash
 cd data/wikicleaner/
-bash run.sh '/data/wiki/text/*/wiki_??' # Change to your own path
+bash run.sh '/data/wiki/text/*/wiki_??' /data/wiki/results # Change to your own path
 ```
