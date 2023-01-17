@@ -18,3 +18,17 @@ python ./data/WikiExtractor.py /data/wiki/enwiki-20230101-pages-articles.xml -o 
 cd data/wikicleaner/
 bash run.sh '/data/wiki/text/*/wiki_??' /data/wiki/results # Change to your own path
 ```
+
+#### 4. Download vocab
+
+```bash
+cd .. # To ./data
+python vocab_downloader.py --type=bert-base-uncased
+mv bert-base-uncased-vocab.txt /data/wiki/
+```
+
+#### 5. Create bert pretraining dataset
+
+```bash
+bash create_pretraining_data.sh /data/wiki/bert-base-uncased-vocab.txt '/data/wiki/results/pretrain-part-?????.txt'
+```
