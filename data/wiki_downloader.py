@@ -1,8 +1,4 @@
-import bz2
 import os
-import urllib.request
-import subprocess
-import sys
 import subprocess
 import argparse
 
