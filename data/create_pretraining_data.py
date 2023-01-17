@@ -393,6 +393,7 @@ def main():
     for items in instances_:
         for item in items:
             instances.append(item)
+    rng.shuffle(instances)
     print('Instances generated:', len(instances))
 
     output_files = [
