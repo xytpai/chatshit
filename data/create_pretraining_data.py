@@ -259,6 +259,7 @@ def create_training_instances(
         max_predictions_per_seq, rng):
     all_documents = [[]]
     for input_file in input_files:
+        print('processing ' + str(input_file))
         with open(input_file, 'r') as f:
             while True:
                 line = tokenization.convert_to_unicode(f.readline())
