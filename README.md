@@ -30,5 +30,6 @@ mv bert-base-uncased-vocab.txt /data/wiki/
 #### 5. Create bert pretraining dataset
 
 ```bash
-bash create_pretraining_data.sh /data/wiki/bert-base-uncased-vocab.txt '/data/wiki/results/pretrain-part-?????.txt'
+export VOCAB_FILE=/data/wiki/bert-base-uncased-vocab.txt
+bash parallel_create_pretraining_data.sh /data/wiki/results/
 ```
