@@ -1,13 +1,7 @@
-vocab_file=$1
-inputs=$2
-
-input_files=""
-for f in ${inputs}; do
-  input_files=${input_files},${f}
-done
+input_files=$1
 
 python create_pretraining_data.py \
-    --vocab_file=${vocab_file} \
+    --vocab_file=${VOCAB_FILE} \
     --input_file=${input_files} \
     --output_file=${input_files} \
     --do_lower_case \
