@@ -2,10 +2,9 @@ import collections
 import random
 import tokenization
 import h5py
+import os
 import argparse
 import numpy as np
-from multiprocessing import cpu_count
-from multiprocessing.dummy import Pool as ThreadPool
 
 hdf5_compression_method = None
 
@@ -373,32 +372,19 @@ def main():
     tokenizer = tokenization.FullTokenizer(
         vocab_file=args.vocab_file, do_lower_case=args.do_lower_case)
     input_files = [item for item in args.input_files.split(
-        ',') if len(item) > 0]
-    print('Input files:', len(input_files))
-    n_processes = cpu_count()
-    count_for_one_task = (len(input_files) + n_processes - 1) // n_processes
-    input_files = [input_files[i * count_for_one_task: (i + 1) * count_for_one_task] for i in range(n_processes)]
-    
+        ',') if len(item) > 0] 
     rng = random.Random(args.seed)
-    def task_create_training_instances(input_files_):
-        if len(input_files_) == 0:
-            return []
-        return create_training_instances(
-            input_files_, tokenizer, args.max_seq_length, args.dupe_factor,
+    instances = create_training_instances(
+            input_files, tokenizer, args.max_seq_length, args.dupe_factor,
             args.short_seq_prob, args.masked_lm_prob, args.max_predictions_per_seq,
             rng)
-
-    pool = ThreadPool(n_processes)
-    instances_ = pool.map(task_create_training_instances, input_files)
-    instances = []
-    for items in instances_:
-        for item in items:
-            instances.append(item)
-    rng.shuffle(instances)
     print('Instances generated:', len(instances))
-
     output_files = [
         item for item in args.output_files.split(',') if len(item) > 0]
+    
+    basedir = os.path.dirname(output_files[0]) + '/hdf5'
+    os.makedirs(basedir, exist_ok=True)
+    output_files = [os.path.join(basedir, os.path.basename(item)) for item in output_files]
     write_instance_to_example_files(instances, tokenizer, args.max_seq_length,
                                     args.max_predictions_per_seq, output_files)
 
