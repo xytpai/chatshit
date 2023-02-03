@@ -406,9 +406,11 @@ def _is_punctuation(char):
 
 # Just an example to use tokenizer
 if __name__ == '__main__':
-    tokenizer = FullTokenizer('vocab.txt')
+    tokenizer = FullTokenizer('/data/wiki/bert-base-uncased-vocab.txt')
     text = 'We treat all non-letter/number ASCII as punctuation.'
     tokens = tokenizer.tokenize(text)
     ids = tokenizer.convert_tokens_to_ids(tokens)
+    ids_inv = tokenizer.convert_ids_to_tokens(ids)
     print(tokens)
     print(ids)
+    print(ids_inv)
