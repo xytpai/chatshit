@@ -123,7 +123,7 @@ class LinearActivation(nn.Module):
         )
 
 
-class BertSelfAttention(nn.Module):
+class Attention(nn.Module):
     def __init__(self, config):
         super().__init__()
         if config.hidden_size % config.num_attention_heads != 0:
@@ -136,8 +136,11 @@ class BertSelfAttention(nn.Module):
         self.query = nn.Linear(self.hidden_size, self.hidden_size)
         self.key = nn.Linear(self.hidden_size, self.hidden_size)
         self.value = nn.Linear(self.hidden_size, self.hidden_size)
-        self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
-
+        self.dropout_attention = nn.Dropout(config.attention_probs_dropout_prob)
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.dropout_out = nn.Dropout(config.hidden_dropout_prob)
+        self.layer_norm = nn.LayerNorm(config.hidden_size, eps=1e-12)
+        
     def transpose_for_scores(self, x):
         # (seq, bsz, hidden) -> (bsz * heads, seq, head_features)
         x = x.view(x.size(0), x.size(1) * self.num_attention_heads,
@@ -168,7 +171,7 @@ class BertSelfAttention(nn.Module):
         attention_scores = attention_scores / \
             math.sqrt(self.attention_head_size)
         attention_probs = F.softmax(attention_scores + attention_mask, dim=-1)
-        attention_probs = self.dropout(attention_probs)
+        attention_probs = self.dropout_attention(attention_probs)
         attention_probs = attention_probs.view(batch_size * self.num_attention_heads,
                                                seq_length, seq_length)
         # attention_probs: (bsz * heads, seq, seq)
@@ -178,33 +181,10 @@ class BertSelfAttention(nn.Module):
         context_layer = context_layer.transpose(0, 1).contiguous()
         context_layer = context_layer.view(
             seq_length, batch_size, self.hidden_size)
-        return context_layer
-
-
-class BertSelfOutput(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=1e-12)
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
-
-    def forward(self, hidden_states, input_tensor):
-        hidden_states = self.dense(hidden_states)
-        hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
-        return hidden_states
-
-
-class BertAttention(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.self = BertSelfAttention(config)
-        self.output = BertSelfOutput(config)
-
-    def forward(self, input_tensor, attention_mask):
-        self_output = self.self(input_tensor, attention_mask)
-        attention_output = self.output(self_output, input_tensor)
-        return attention_output
+        output = self.dense(context_layer)
+        output = self.dropout_out(output)
+        output = self.layer_norm(output + hidden_states)
+        return output
 
 
 class BertIntermediate(nn.Module):
@@ -235,7 +215,7 @@ class BertOutput(nn.Module):
 class BertLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.attention = BertAttention(config)
+        self.attention = Attention(config)
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
 
