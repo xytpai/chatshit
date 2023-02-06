@@ -436,9 +436,9 @@ class BertForPreTraining(BertModelBase):
 
 
 class BertPretrainingCriterion(nn.Module):
-    def __init__(self, vocab_size, sequence_output_is_dense=False):
+    def __init__(self, vocab_size, sequence_output_is_dense=False, ignore_index=-1):
         super().__init__()
-        self.loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
+        self.loss_fn = nn.CrossEntropyLoss(ignore_index=ignore_index)
         self.vocab_size = vocab_size
         self.sequence_output_is_dense = sequence_output_is_dense
 
