@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument("--learning_rate", type=float, default=5e-5,
                         help="Initial learning rate (after the potential warmup period) to use.")
 
-    parser.add_argument("--max_predictions_per_seq", default=76, type=int,
+    parser.add_argument("--max_predictions_per_seq", default=512, type=int,
                         help="The maximum total of masked tokens in input sequence")
     parser.add_argument("--train_batch_size", default=8,
                         type=int, help="Total batch size for training.")

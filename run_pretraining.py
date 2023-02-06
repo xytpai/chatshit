@@ -8,6 +8,7 @@ import modeling_bert
 
 from utils import is_main_process, format_step, get_world_size, get_rank
 from schedulers import PolyWarmUpScheduler
+from datasets import get_pretraining_datafiles, get_pretraining_dataloader
 
 
 def setup_training(args):
@@ -133,7 +134,11 @@ def prepare_model_and_optimizer(args, device, sequence_output_is_dense):
     else:
         start_epoch = 0
 
-    return model, optimizer, None, lr_scheduler, checkpoint, global_step, criterion, start_epoch
+    if torch.distributed.is_initialized() and not args.no_ddp:
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[args.local_rank], 
+        )
+    return model, optimizer, None, lr_scheduler, checkpoint, global_step, criterion, start_epoch, config
 
 
 def main():
@@ -145,9 +150,37 @@ def main():
     torch.manual_seed(args.seed + args.local_rank)
 
     device, args = setup_training(args)
-    model, optimizer, _, lr_scheduler, checkpoint, global_resume_step, criterion, epoch = \
+    model, optimizer, _, lr_scheduler, checkpoint, global_resume_step, criterion, epoch, config = \
         prepare_model_and_optimizer(
             args, device, sequence_output_is_dense=not args.no_dense_sequence_output)
+        
+    if args.do_train:
+        model.train()
+        files = get_pretraining_datafiles(args.input_dir)
+        # print(files)
+        global_step = 0
+        end_training = False
+        while global_step < args.max_steps and not end_training:
+            for f_id in range(0, len(files)):
+                loader = get_pretraining_dataloader(files[f_id], args.train_batch_size, args.max_predictions_per_seq)
+                for step, batch in enumerate(loader):
+                    input_ids, segment_ids, input_mask, \
+                        masked_lm_labels, next_sentence_labels = batch
+                    input_ids = input_ids.cuda()
+                    segment_ids = segment_ids.cuda()
+                    input_mask = input_mask.cuda()
+                    masked_lm_labels = masked_lm_labels.cuda()
+                    next_sentence_labels = next_sentence_labels.cuda()
+                    prediction_scores, seq_relationship_score = \
+                        model(input_ids=input_ids, token_type_ids=segment_ids,
+                            attention_mask=input_mask, masked_lm_labels=masked_lm_labels)
+                    loss = criterion(prediction_scores, seq_relationship_score, 
+                        masked_lm_labels, next_sentence_labels)
+                    loss.backward()
+                    optimizer.step()
+                    lr_scheduler.step()
+                    optimizer.zero_grad()
+                    raise
 
 
 if __name__ == '__main__':
